@@ -10,22 +10,84 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch("/activities");
       const activities = await response.json();
 
-      // Clear loading message
+      // Clear loading message and previous options/cards
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">Select an activity</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
 
-        const spotsLeft = details.max_participants - details.participants.length;
+        const spotsLeft = details.max_participants - (details.participants ? details.participants.length : 0);
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
+          <p>${details.description || ""}</p>
+          <p><strong>Schedule:</strong> ${details.schedule || "TBD"}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
         `;
+
+        // Participants section
+        const participantsDiv = document.createElement("div");
+        participantsDiv.className = "participants";
+        const participantsHeading = document.createElement("h5");
+        participantsHeading.textContent = "Participants";
+        participantsDiv.appendChild(participantsHeading);
+
+        const list = document.createElement("ul");
+        list.className = "participant-list";
+
+        const participants = Array.isArray(details.participants) ? details.participants : [];
+
+        if (participants.length === 0) {
+          const empty = document.createElement("li");
+          empty.textContent = "No participants yet";
+          empty.style.color = "#666";
+          list.appendChild(empty);
+        } else {
+          participants.forEach((p) => {
+            let displayName = "";
+            let avatarEl = null;
+
+            if (p && typeof p === "object") {
+              displayName = p.name || p.email || "Participant";
+              if (p.avatar) {
+                avatarEl = document.createElement("img");
+                avatarEl.className = "participant-avatar";
+                avatarEl.src = p.avatar;
+                avatarEl.alt = displayName;
+              }
+            } else {
+              displayName = String(p);
+            }
+
+            // Fallback avatar with initials
+            if (!avatarEl) {
+              const initials = displayName
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((s) => s[0].toUpperCase())
+                .join("");
+              avatarEl = document.createElement("span");
+              avatarEl.className = "participant-avatar";
+              avatarEl.textContent = initials || "?";
+            }
+
+            const li = document.createElement("li");
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "participant-name";
+            nameSpan.textContent = displayName;
+
+            li.appendChild(avatarEl);
+            li.appendChild(nameSpan);
+            list.appendChild(li);
+          });
+        }
+
+        participantsDiv.appendChild(list);
+        activityCard.appendChild(participantsDiv);
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +124,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // refresh activities to show updated participants
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
