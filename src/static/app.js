@@ -49,9 +49,13 @@ document.addEventListener("DOMContentLoaded", () => {
           participants.forEach((p) => {
             let displayName = "";
             let avatarEl = null;
+            let displayName = "";
+            let avatarEl = null;
+            let participantEmail = null;
 
             if (p && typeof p === "object") {
               displayName = p.name || p.email || "Participant";
+              participantEmail = p.email || null;
               if (p.avatar) {
                 avatarEl = document.createElement("img");
                 avatarEl.className = "participant-avatar";
@@ -60,6 +64,8 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             } else {
               displayName = String(p);
+              // if the participant entry looks like an email, use it
+              participantEmail = /@/.test(displayName) ? displayName : null;
             }
 
             // Fallback avatar with initials
@@ -82,6 +88,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
             li.appendChild(avatarEl);
             li.appendChild(nameSpan);
+
+            // Add remove/unregister button if we have an email to target
+            if (participantEmail) {
+              const removeBtn = document.createElement("button");
+              removeBtn.type = "button";
+              removeBtn.className = "participant-remove";
+              removeBtn.title = "Unregister participant";
+              removeBtn.textContent = "✕";
+              removeBtn.addEventListener("click", async (e) => {
+                e.preventDefault();
+                // call unregister endpoint
+                try {
+                  const resp = await fetch(
+                    `/activities/${encodeURIComponent(name)}/unregister?email=${encodeURIComponent(participantEmail)}`,
+                    { method: "POST" }
+                  );
+                  const result = await resp.json();
+                  if (resp.ok) {
+                    messageDiv.textContent = result.message;
+                    messageDiv.className = "success";
+                    // refresh list
+                    fetchActivities();
+                  } else {
+                    messageDiv.textContent = result.detail || "Failed to unregister";
+                    messageDiv.className = "error";
+                  }
+                } catch (err) {
+                  messageDiv.textContent = "Failed to unregister. Please try again.";
+                  messageDiv.className = "error";
+                  console.error("Error unregistering:", err);
+                }
+                messageDiv.classList.remove("hidden");
+                setTimeout(() => {
+                  messageDiv.classList.add("hidden");
+                }, 4000);
+              });
+
+              // push remove button to the end
+              li.appendChild(removeBtn);
+            }
+
             list.appendChild(li);
           });
         }
